@@ -29,7 +29,7 @@ macro var(ex)
     var = ex.args[1]
     name = string(var)
     val = ex.args[2]
-    return esc(:($var = NamedVar(Symbol($name), $(val))))
+    return esc(:($var = CoupledSystems.NamedVar(Symbol($name), $(val))))
 end
 
 """

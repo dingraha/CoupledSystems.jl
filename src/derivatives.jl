@@ -269,7 +269,8 @@ end
 function create_output_jacobian_functions(f!, x0, y0, dtype::ForwardAD, sp::SparsePattern)
 
     # get chunk size for ForwardDiff
-    chunk = isnothing(dtype.chunk) ? ForwardDiff.Chunk(x0) : dtype.chunk
+    # ForwardColorJacCache doesn't accept `ForwardDiff.Chunk{N}` as a chunk size, only `::Integer` or `::Val{chunksize}`.
+    chunk = isnothing(dtype.chunk) ? ForwardDiff.chunksize(ForwardDiff.Chunk(x0)) : dtype.chunk
 
     # construct cache
     sparsity = sparse(sp.rows, sp.cols, ones(length(sp.rows)))

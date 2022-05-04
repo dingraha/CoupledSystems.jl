@@ -38,6 +38,11 @@ outputs corresponding to `foutin`.
     provided.
  - `sparsity = DensePattern()`: Defines the sparsity structure of the jacobian
     if `dydx` is not provided
+ - `detect_sparsity = false`: If true, attempt to detect the sparsity of the
+    component's Jacobian, ignoring the `sparsity` argument. Ignored if the user passes `df` or `fdf`.
+ - `lx`, `ux`: Vectors indicating the lower and upper bounds on inputs to use
+    when detecting sparsity (see [`SparsePattern`](@ref)). If `nothing`, limits
+    will be set 10% lower and higher than their default values.
  - `component_inputs`: Names of the inputs from `fin` which are also used as
     inputs to `f`. Defaults to all variables in `inputs`.
  - `component_outputs`: Names of the outputs from `fout` and `foutin` which are
@@ -46,6 +51,8 @@ outputs corresponding to `foutin`.
 function ExplicitComponent(func, fin, fout, foutin;
     f=nothing, df=nothing, fdf=nothing, dydx = nothing, deriv=ForwardFD(),
     sparsity = DensePattern(),
+    detect_sparsity = false,
+    lx=nothing, ux=nothing,
     component_inputs = name.(fin),
     component_outputs = (name.(fout)..., name.(foutin)...))
 
@@ -96,7 +103,6 @@ function ExplicitComponent(func, fin, fout, foutin;
     x_f = NaN .* x0
     x_df = NaN .* x0
     y = NaN .* y0
-    dydx = isnothing(dydx) ? allocate_jacobian(x0, y0, sparsity) : NaN .* dydx
 
     # construct output function (if necessary)
     if isnothing(f)
@@ -125,6 +131,7 @@ function ExplicitComponent(func, fin, fout, foutin;
                 return y
             end
         else
+            dydx = isnothing(dydx) ? allocate_jacobian(x0, y0, sparsity) : NaN .* dydx
             # use `fdf` to construct `f`
             let dydx = copy(dydx)
                 f = function(y, x)
@@ -137,7 +144,18 @@ function ExplicitComponent(func, fin, fout, foutin;
 
     # construct jacobian functions (if necessary)
     if isnothing(df) && isnothing(fdf)
+        if detect_sparsity
+            ng = length(y0)
+            if isnothing(lx)
+                lx = @. x0 - 0.1*abs(x0)
+            end
+            if isnothing(ux)
+                ux = @. x0 + 0.1*abs(x0)
+            end
+            sparsity = SparsePattern(deriv, f, ng, lx, ux)
+        end
         # construct df and fdf functions from f
+        @show sparsity
         df, fdf = create_output_jacobian_functions(f, x0, y0, deriv, sparsity)
     elseif isnothing(df)
         # construct df function from fdf
@@ -155,6 +173,9 @@ function ExplicitComponent(func, fin, fout, foutin;
             return y, dydx
         end
     end
+
+    # Allocate storage for the Jacobian, if we haven't already.
+    dydx = isnothing(dydx) ? allocate_jacobian(x0, y0, sparsity) : NaN .* dydx
 
     return ExplicitComponent(f, df, fdf, x_f, x_df, y, dydx, argin, argout)
 end
