@@ -303,7 +303,7 @@ function create_output_jacobian_functions(f!, x0, y0, dtype::AbstractFD, sp::Spa
     fdtype = finitediff_type(dtype)
     sparsity = sparse(sp.rows, sp.cols, ones(length(sp.rows)))
     colorvec = SparseDiffTools.matrix_colors(sparsity)
-    cache = FiniteDiff.JacobianCache(xcache, ycache, ycache1, fdtype, sparsity,
+    cache = FiniteDiff.JacobianCache(xcache, ycache, ycache1, fdtype; sparsity,
         colorvec)
 
     # define jacobian function

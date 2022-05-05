@@ -15,8 +15,8 @@ SparseDiffTools = "47a9eef4-7e08-11e9-0b38-333d64bd3804"
 
 [compat]
 DiffResults = "1.0"
-FiniteDiff = "2.8"
 ForwardDiff = "0.10"
+FiniteDiff = "2.11.1"
 NLsolve = "4.5"
 ReverseDiff = "1.7"
 SparseDiffTools = "1.13"

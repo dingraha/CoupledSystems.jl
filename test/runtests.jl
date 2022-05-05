@@ -1,5 +1,6 @@
 using CoupledSystems
 using ForwardDiff
+using SparseArrays: sparse
 using Test
 
 @testset "Named Variables" begin
@@ -264,6 +265,74 @@ end
         @test all(isapprox.(outputs_and_jacobian!!(comp, x), outputs_and_jacobian!!(dcomp, x), atol=1e-6))
         @test all(isapprox.(outputs_and_jacobian(comp), outputs_and_jacobian(dcomp), atol=1e-6))
     end
+end
+
+@testset "ExplicitComponent - Sparse Derivatives" begin
+    # This uses the paraboloid example from OpenMDAO
+
+    # define variables and set defaults
+    n = 4
+    @var x = ones(n).*(1:n) .+ 0.5
+    @var y = ones(n).*(1:n) .+ 1.5
+    @var fxy = zeros(n)
+
+    # construct template function
+    fin = (x, y)
+    fout = (fxy,)
+    foutin = ()
+    func = (x,y) -> ((x .- 3).^2 .+ x.*y .+ (y .+ 4).^2 .- 3,)
+
+    # Create an ExplicitComponent with a user-defined sparsity.
+    rows = vcat([i for i in 1:n], [i for i in 1:n])
+    cols = vcat([i for i in 1:n], [i+n for i in 1:n])
+    sparsity = SparsePattern(rows, cols)
+    comp = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), sparsity=sparsity)
+
+    # Create ExplicitComponents with detected sparsity.
+    comp_FAD = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), detect_sparsity=true)
+    comp_FFD = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardFD(), detect_sparsity=true)
+    comp_CFD = ExplicitComponent(func, fin, fout, foutin; deriv=CentralFD(), detect_sparsity=true)
+    comp_XFD = ExplicitComponent(func, fin, fout, foutin; deriv=ComplexFD(), detect_sparsity=true)
+
+    # Get the sparsity for the component with user-defined sparsity.
+    s1 = SparsePattern(jacobian(comp))
+    rows1, cols1 = s1.rows, s1.cols
+
+    x = zeros(2*n)
+    y = zeros(n)
+    dydx = sparse(s1.rows, s1.cols, ones(length(s1.rows)), n, 2*n)
+    dydx2 = similar(dydx)
+
+    for dcomp in [comp_FAD, comp_FFD, comp_CFD, comp_XFD]
+
+        # Make sure we got the correct sparsity.
+        s2 = SparsePattern(jacobian(dcomp))
+        rows2, cols2 = s2.rows, s2.cols
+        @test all(rows1 .== rows2)
+        @test all(cols1 .== cols2)
+
+        x = rand(2*n)
+        @test isapprox(outputs(comp, x), outputs(dcomp, x), atol=1e-6)
+        @test isapprox(outputs!(comp, y, x), outputs!(dcomp, y, x), atol=1e-6)
+        @test isapprox(outputs!(comp, x), outputs!(dcomp, x), atol=1e-6)
+        @test isapprox(outputs!!(comp, x), outputs!!(dcomp, x), atol=1e-6)
+        @test isapprox(outputs(comp), outputs(dcomp), atol=1e-6)
+
+        x = rand(2*n)
+        @test isapprox(jacobian(comp, x), jacobian(dcomp, x), atol=1e-6)
+        @test isapprox(jacobian!(comp, dydx, x), jacobian!(dcomp, dydx2, x), atol=1e-6)
+        @test isapprox(jacobian!(comp, x), jacobian!(dcomp, x), atol=1e-6)
+        @test isapprox(jacobian!!(comp, x), jacobian!!(dcomp, x), atol=1e-6)
+        @test isapprox(jacobian(comp), jacobian(dcomp), atol=1e-6)
+
+        x = rand(2*n)
+        @test all(isapprox.(outputs_and_jacobian(comp, x), outputs_and_jacobian(dcomp, x), atol=1e-6))
+        @test all(isapprox.(outputs_and_jacobian!(comp, y, dydx, x), outputs_and_jacobian!(dcomp, y, dydx2, x), atol=1e-6))
+        @test all(isapprox.(outputs_and_jacobian!(comp, x), outputs_and_jacobian!(dcomp, x), atol=1e-6))
+        @test all(isapprox.(outputs_and_jacobian!!(comp, x), outputs_and_jacobian!!(dcomp, x), atol=1e-6))
+        @test all(isapprox.(outputs_and_jacobian(comp), outputs_and_jacobian(dcomp), atol=1e-6))
+    end
+
 end
 
 @testset "Explicit to Implicit" begin
@@ -536,36 +605,6 @@ end
     dydx_ad = ForwardDiff.jacobian(x -> outputs(sys, x), x)
     dydx_r = jacobian!!!(sys, x, Reverse())
     @test isapprox(dydx_ad, dydx_r)
-end
-
-@testset "ExplicitComponent - Sparse Derivatives" begin
-    # This uses the paraboloid example from OpenMDAO
-
-    # define variables and set defaults
-    n = 4
-    @var x = ones(n).*(1:n) .+ 0.5
-    @var y = ones(n).*(1:n) .+ 1.5
-    @var fxy = zeros(n)
-
-    # construct template function
-    fin = (x, y)
-    fout = (fxy,)
-    foutin = ()
-    func = (x,y) -> ((x .- 3).^2 .+ x.*y .+ (y .+ 4).^2 .- 3,)
-
-    rows = vcat([i for i in 1:n], [i for i in 1:n])
-    cols = vcat([i for i in 1:n], [i+n for i in 1:n])
-    sparsity = SparsePattern(rows, cols)
-    comp_FAD_detect_sparse = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), detect_sparsity=true)
-    comp_FAD_sparse = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), sparsity=sparsity)
-
-    # Get the sparsity.
-    s1 = SparsePattern(jacobian(comp_FAD_sparse))
-    s2 = SparsePattern(jacobian(comp_FAD_detect_sparse))
-    rows1, cols1 = s1.rows, s1.cols
-    rows2, cols2 = s2.rows, s2.cols
-    @test all(rows1 .== rows2)
-    @test all(cols1 .== cols2)
 end
 
 @testset "ImplicitComponent" begin
