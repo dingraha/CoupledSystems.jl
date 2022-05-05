@@ -378,8 +378,8 @@ end
     fout = (fq,)
     foutin = ()
     func = function(a, b, c, fp)
-        fq = a*fp^2 + b*fp + c*fp + 1
-        return fq
+        fq2 = a*fp^2 + b*fp + c*fp + 1
+        return (fq2,)
     end
 
     # construct quadratic component
@@ -394,7 +394,7 @@ end
     func = function(ft, fp, fq)
         ft[1] = sin(fp)
         ft[2] = cos(fq)
-        return ft
+        return (ft,)
     end
 
     # construct trigometric component
@@ -465,8 +465,7 @@ end
     fout = (fq,)
     foutin = ()
     func = function(a, b, c, fp)
-        fq = a*fp^2 + b*fp + c*fp + 1
-        return fq
+        return a*fp^2 + b*fp + c*fp + 1 
     end
 
     # construct quadratic component
@@ -537,6 +536,36 @@ end
     dydx_ad = ForwardDiff.jacobian(x -> outputs(sys, x), x)
     dydx_r = jacobian!!!(sys, x, Reverse())
     @test isapprox(dydx_ad, dydx_r)
+end
+
+@testset "ExplicitComponent - Sparse Derivatives" begin
+    # This uses the paraboloid example from OpenMDAO
+
+    # define variables and set defaults
+    n = 4
+    @var x = ones(n).*(1:n) .+ 0.5
+    @var y = ones(n).*(1:n) .+ 1.5
+    @var fxy = zeros(n)
+
+    # construct template function
+    fin = (x, y)
+    fout = (fxy,)
+    foutin = ()
+    func = (x,y) -> ((x .- 3).^2 .+ x.*y .+ (y .+ 4).^2 .- 3,)
+
+    rows = vcat([i for i in 1:n], [i for i in 1:n])
+    cols = vcat([i for i in 1:n], [i+n for i in 1:n])
+    sparsity = SparsePattern(rows, cols)
+    comp_FAD_detect_sparse = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), detect_sparsity=true)
+    comp_FAD_sparse = ExplicitComponent(func, fin, fout, foutin; deriv=ForwardAD(), sparsity=sparsity)
+
+    # Get the sparsity.
+    s1 = SparsePattern(jacobian(comp_FAD_sparse))
+    s2 = SparsePattern(jacobian(comp_FAD_detect_sparse))
+    rows1, cols1 = s1.rows, s1.cols
+    rows2, cols2 = s2.rows, s2.cols
+    @test all(rows1 .== rows2)
+    @test all(cols1 .== cols2)
 end
 
 @testset "ImplicitComponent" begin
@@ -867,8 +896,7 @@ end
     fout = (fq,)
     foutin = ()
     func = function(a, b, c, fp)
-        fq = a*fp^2 + b*fp + c*fp + 1
-        return fq
+        return a*fp^2 + b*fp + c*fp + 1
     end
 
     # construct quadratic component
@@ -1029,8 +1057,7 @@ end
 
     # create function for discipline 2
     function f_d2(y1, z1, z2)
-        y2 = sqrt(y1) + z1 + z2
-        return y2
+        return sqrt(y1) + z1 + z2
     end
 
     # construct explicit component for discipline 2

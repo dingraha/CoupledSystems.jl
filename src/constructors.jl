@@ -155,7 +155,6 @@ function ExplicitComponent(func, fin, fout, foutin;
             sparsity = SparsePattern(deriv, f, ng, lx, ux)
         end
         # construct df and fdf functions from f
-        @show sparsity
         df, fdf = create_output_jacobian_functions(f, x0, y0, deriv, sparsity)
     elseif isnothing(df)
         # construct df function from fdf
