@@ -87,9 +87,16 @@ combine(vars) = vcat(vectorize.(value.(vars))...)
 In-place version of [`combine`](@ref)
 """
 @inline function combine!(y, vars::Tuple, idx=0)
-    var = first(vars)
-    nval = length(var)
-    y[idx+1:idx+nval] .= var
+    var = value(first(vars))
+    if var isa AbstractArray
+        nval = length(var)
+        var_vec = view(var, 1:nval)
+    else
+        # Assume var is a scalar.
+        nval = 1
+        var_vec = Ref(var)
+    end
+    y[idx+1:idx+nval] .= var_vec
     idx += nval
     return combine!(y, tail(vars), idx)
 end

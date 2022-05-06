@@ -27,6 +27,11 @@ using Test
     @test x1 == x2
     @test y1 == y2
     @test z1 == z2
+
+    # combine! with multi-dimensional arrays.
+    y = zeros(length(x1) + length(y1) + length(z1))
+    combine!(y, vars)
+    @test isapprox(y, v)
 end
 
 @testset "ExplicitComponent" begin
