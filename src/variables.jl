@@ -91,7 +91,8 @@ In-place version of [`combine`](@ref)
     # Maybe this is premature optimization, but I'm trying to avoid the
     # allocations associated with `vectorize`. I think the type of each variable
     # in `vars` will be known to the compiler, so it should be able to remove
-    # the branching.
+    # the branching. Oh, but this function is inlined. Not sure. It appears to
+    # be type-stable and almost non-allocating according to `BenchmarkTools.@btime`.
     if var isa AbstractArray
         nval = length(var)
         y[idx+1:idx+nval] .= view(var, 1:nval)

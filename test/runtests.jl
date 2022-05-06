@@ -7,29 +7,35 @@ using Test
     # default values for each variable
     x1 = rand()
     y1 = rand(10)
-    z1 = rand(10, 10, 10, 10)
+    z1 = rand(10, 10)
+    a1 = rand(10, 10, 10)
+    b1 = rand(10, 10, 10, 10)
 
     # define each named variable
     @var x = x1
     @var y = y1
     @var z = z1
+    @var a = a1
+    @var b = b1
 
     # create tuple of named variables
-    vars = (x, y, z)
+    vars = (x, y, z, a, b)
 
     # combine values into a single vector
     v = combine(vars)
 
     # separate variables
-    x2, y2, z2 = separate(vars, v)
+    x2, y2, z2, a2, b2 = separate(vars, v)
 
     # check that variable values didn't change
     @test x1 == x2
     @test y1 == y2
     @test z1 == z2
+    @test a1 == a2
+    @test b1 == b2
 
     # combine! with multi-dimensional arrays.
-    y = zeros(length(x1) + length(y1) + length(z1))
+    y = zeros(length(x1) + length(y1) + length(z1) + length(a1) + length(b1))
     combine!(y, vars)
     @test isapprox(y, v)
 end
