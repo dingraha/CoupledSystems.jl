@@ -88,15 +88,18 @@ In-place version of [`combine`](@ref)
 """
 @inline function combine!(y, vars::Tuple, idx=0)
     var = value(first(vars))
+    # Maybe this is premature optimization, but I'm trying to avoid the
+    # allocations associated with `vectorize`. I think the type of each variable
+    # in `vars` will be known to the compiler, so it should be able to remove
+    # the branching.
     if var isa AbstractArray
         nval = length(var)
-        var_vec = view(var, 1:nval)
+        y[idx+1:idx+nval] .= view(var, 1:nval)
     else
         # Assume var is a scalar.
         nval = 1
-        var_vec = Ref(var)
+        y[idx+1] = var
     end
-    y[idx+1:idx+nval] .= var_vec
     idx += nval
     return combine!(y, tail(vars), idx)
 end

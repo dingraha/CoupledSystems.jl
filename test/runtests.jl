@@ -7,7 +7,7 @@ using Test
     # default values for each variable
     x1 = rand()
     y1 = rand(10)
-    z1 = rand(10, 10)
+    z1 = rand(10, 10, 10, 10)
 
     # define each named variable
     @var x = x1
